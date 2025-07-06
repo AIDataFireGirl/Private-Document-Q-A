@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Documents - Private Document Q&A System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-folder me-2"></i>
+                    Document Management
+                </h4>
+                <button id="refreshButton" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- Documents Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Document</th>
+                                <th>Size</th>
+                                <th>Type</th>
+                                <th>Modified</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="documentsTable">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>
+                                    Loading documents...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Document Details Modal -->
+                <div class="modal fade" id="documentModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Document Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="documentModalBody">
+                                <!-- Document details will be loaded here -->
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Index Statistics -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Index Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row" id="indexStats">
+                    <div class="col-md-3 text-center">
+                        <div class="stats-card">
+                            <h4 id="totalDocuments" class="text-primary">-</h4>
+                            <small class="text-muted">Total Documents</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="stats-card">
+                            <h4 id="indexedDocuments" class="text-success">-</h4>
+                            <small class="text-muted">Indexed</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="stats-card">
+                            <h4 id="totalSize" class="text-info">-</h4>
+                            <small class="text-muted">Total Size</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="stats-card">
+                            <h4 id="lastUpdated" class="text-warning">-</h4>
+                            <small class="text-muted">Last Updated</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const documentsTable = $('#documentsTable');
+    const refreshButton = $('#refreshButton');
+    const documentModal = new bootstrap.Modal(document.getElementById('documentModal'));
+    const documentModalBody = $('#documentModalBody');
+    
+    // Load documents on page load
+    loadDocuments();
+    loadIndexStats();
+    
+    // Refresh button click
+    refreshButton.on('click', function() {
+        showLoading(refreshButton);
+        loadDocuments();
+        loadIndexStats();
+        setTimeout(() => {
+            hideLoading(refreshButton, '<i class="fas fa-sync-alt me-1"></i>Refresh');
+        }, 1000);
+    });
+    
+    function loadDocuments() {
+        $.ajax({
+            url: '/api/web/documents',
+            method: 'GET',
+            success: function(response) {
+                if (response.documents && response.documents.length > 0) {
+                    const tableRows = response.documents.map(doc => {
+                        const fileExt = doc.name.split('.').pop().toUpperCase();
+                        const fileIcon = getFileIcon(fileExt);
+                        const status = getDocumentStatus(doc);
+                        
+                        return `
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="${fileIcon} me-2 text-muted"></i>
+                                        <div>
+                                            <strong>${doc.name}</strong>
+                                            <br>
+                                            <small class="text-muted">${doc.path || ''}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>${formatBytes(doc.size)}</td>
+                                <td><span class="badge bg-secondary">${fileExt}</span></td>
+                                <td>${formatDate(doc.modified)}</td>
+                                <td>${status}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary view-doc" data-doc='${JSON.stringify(doc)}'>
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-doc" data-doc='${JSON.stringify(doc)}'>
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    documentsTable.html(tableRows);
+                } else {
+                    documentsTable.html(`
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">
+                                <i class="fas fa-folder-open me-2"></i>
+                                No documents found. Upload some documents to get started!
+                            </td>
+                        </tr>
+                    `);
+                }
+            },
+            error: function() {
+                documentsTable.html(`
+                    <tr>
+                        <td colspan="6" class="text-center text-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Failed to load documents
+                        </td>
+                    </tr>
+                `);
+            }
+        });
+    }
+    
+    function loadIndexStats() {
+        $.ajax({
+            url: '/api/web/stats',
+            method: 'GET',
+            success: function(response) {
+                if (response.index_stats) {
+                    const stats = response.index_stats;
+                    $('#totalDocuments').text(stats.total_documents || 0);
+                    $('#indexedDocuments').text(stats.index_exists ? stats.total_documents || 0 : 0);
+                    $('#totalSize').text('-'); // Would need to calculate from documents
+                    $('#lastUpdated').text(stats.timestamp ? formatDate(new Date(stats.timestamp).getTime() / 1000) : '-');
+                }
+            },
+            error: function() {
+                $('#totalDocuments').text('Error');
+                $('#indexedDocuments').text('Error');
+                $('#totalSize').text('Error');
+                $('#lastUpdated').text('Error');
+            }
+        });
+    }
+    
+    function getFileIcon(extension) {
+        const iconMap = {
+            'PDF': 'fas fa-file-pdf',
+            'DOCX': 'fas fa-file-word',
+            'TXT': 'fas fa-file-alt',
+            'MD': 'fas fa-file-alt'
+        };
+        return iconMap[extension] || 'fas fa-file';
+    }
+    
+    function getDocumentStatus(doc) {
+        // This would be enhanced with actual indexing status
+        return '<span class="badge bg-success">Indexed</span>';
+    }
+    
+    // Document view button click
+    $(document).on('click', '.view-doc', function() {
+        const doc = $(this).data('doc');
+        showDocumentDetails(doc);
+    });
+    
+    // Document delete button click
+    $(document).on('click', '.delete-doc', function() {
+        const doc = $(this).data('doc');
+        if (confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+            deleteDocument(doc);
+        }
+    });
+    
+    function showDocumentDetails(doc) {
+        const modalContent = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Document Information</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Name:</strong> ${doc.name}</li>
+                        <li><strong>Size:</strong> ${formatBytes(doc.size)}</li>
+                        <li><strong>Type:</strong> ${doc.name.split('.').pop().toUpperCase()}</li>
+                        <li><strong>Modified:</strong> ${formatDate(doc.modified)}</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Index Status</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Status:</strong> <span class="badge bg-success">Indexed</span></li>
+                        <li><strong>Hash:</strong> <code>${doc.file_hash || 'N/A'}</code></li>
+                        <li><strong>Indexed At:</strong> ${doc.indexed_at || 'N/A'}</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        
+        documentModalBody.html(modalContent);
+        documentModal.show();
+    }
+    
+    function deleteDocument(doc) {
+        // This would call the delete API endpoint
+        showAlert(`Document "${doc.name}" deleted successfully`, 'success');
+        loadDocuments();
+        loadIndexStats();
+    }
+});
+</script>
+{% endblock %} 

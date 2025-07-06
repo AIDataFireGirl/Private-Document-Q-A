@@ -1,0 +1,34 @@
+Sample Document for Private Document Q&A System
+
+This is a sample document that demonstrates the capabilities of the Private Document Q&A System. The system is built using LlamaIndex and provides intelligent document processing and question answering capabilities.
+
+Key Features:
+1. Document Indexing: The system can process various document formats including PDF, DOCX, TXT, and Markdown files.
+2. Intelligent Q&A: Users can ask questions about their documents and receive accurate answers based on the content.
+3. Security: The system includes document-level access control and secure storage features.
+4. Web Interface: A user-friendly web interface allows easy document upload and interaction.
+5. API Support: RESTful API endpoints enable integration with other systems.
+
+Technical Architecture:
+- Backend: Python Flask application
+- Document Processing: LlamaIndex for intelligent document indexing
+- Vector Database: ChromaDB for storing document embeddings
+- Language Model: OpenAI GPT models for question answering
+- Frontend: Bootstrap-based responsive web interface
+
+Security Features:
+- Input validation and sanitization
+- File upload security checks
+- Rate limiting to prevent abuse
+- Secure session management
+- Document access control
+
+The system is designed to be modular and extensible, allowing for easy customization and enhancement of functionality. It provides a comprehensive solution for organizations that need to make their internal documents searchable and queryable through natural language.
+
+Usage Instructions:
+1. Upload documents through the web interface or API
+2. Wait for documents to be indexed
+3. Ask questions about the documents using natural language
+4. Receive intelligent answers based on document content
+
+This sample document serves as a test case for the system's document processing and question answering capabilities. 

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Documents - Private Document Q&A System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>
+                    Upload Documents
+                </h4>
+                <small class="text-muted">Upload documents to index them for Q&A</small>
+            </div>
+            <div class="card-body">
+                <!-- Upload Area -->
+                <div id="uploadArea" class="upload-area mb-3">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <h5>Drag & Drop Files Here</h5>
+                    <p class="text-muted">or click to browse</p>
+                    <input type="file" id="fileInput" class="d-none" multiple accept=".pdf,.docx,.txt,.md">
+                    <button type="button" id="browseButton" class="btn btn-outline-primary">
+                        <i class="fas fa-folder-open me-2"></i>
+                        Browse Files
+                    </button>
+                </div>
+                
+                <!-- Supported Formats -->
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Supported Formats</h6>
+                    <ul class="mb-0">
+                        <li><strong>PDF</strong> - Portable Document Format</li>
+                        <li><strong>DOCX</strong> - Microsoft Word Documents</li>
+                        <li><strong>TXT</strong> - Plain Text Files</li>
+                        <li><strong>MD</strong> - Markdown Files</li>
+                    </ul>
+                </div>
+                
+                <!-- Upload Progress -->
+                <div id="uploadProgress" class="d-none">
+                    <h6>Upload Progress</h6>
+                    <div class="progress mb-2">
+                        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small id="progressText" class="text-muted">Preparing upload...</small>
+                </div>
+                
+                <!-- Upload Results -->
+                <div id="uploadResults" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Recent Uploads -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Uploads
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="recentUploads">
+                    <p class="text-muted text-center">No recent uploads</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const uploadArea = $('#uploadArea');
+    const fileInput = $('#fileInput');
+    const browseButton = $('#browseButton');
+    const uploadProgress = $('#uploadProgress');
+    const progressBar = $('#progressBar');
+    const progressText = $('#progressText');
+    const uploadResults = $('#uploadResults');
+    const recentUploads = $('#recentUploads');
+    
+    // Load recent uploads
+    loadRecentUploads();
+    
+    // Browse button click
+    browseButton.on('click', function() {
+        fileInput.click();
+    });
+    
+    // File input change
+    fileInput.on('change', function() {
+        const files = this.files;
+        if (files.length > 0) {
+            uploadFiles(files);
+        }
+    });
+    
+    // Drag and drop functionality
+    uploadArea.on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('dragover');
+    });
+    
+    uploadArea.on('dragleave', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+    });
+    
+    uploadArea.on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+        
+        const files = e.originalEvent.dataTransfer.files;
+        if (files.length > 0) {
+            uploadFiles(files);
+        }
+    });
+    
+    function uploadFiles(files) {
+        uploadProgress.removeClass('d-none');
+        uploadResults.empty();
+        
+        let uploadedCount = 0;
+        let totalFiles = files.length;
+        
+        Array.from(files).forEach((file, index) => {
+            uploadFile(file, index, totalFiles, () => {
+                uploadedCount++;
+                if (uploadedCount === totalFiles) {
+                    setTimeout(() => {
+                        uploadProgress.addClass('d-none');
+                        loadRecentUploads();
+                    }, 1000);
+                }
+            });
+        });
+    }
+    
+    function uploadFile(file, index, total, callback) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Update progress
+        const progress = ((index + 1) / total) * 100;
+        progressBar.css('width', progress + '%');
+        progressText.text(`Uploading ${file.name}...`);
+        
+        $.ajax({
+            url: '/api/web/upload',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    addUploadResult(file.name, 'success', 'Uploaded successfully');
+                    showAlert(`Successfully uploaded ${file.name}`, 'success');
+                } else {
+                    addUploadResult(file.name, 'danger', response.error || 'Upload failed');
+                    showAlert(`Failed to upload ${file.name}: ${response.error}`, 'danger');
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = 'Upload failed';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                addUploadResult(file.name, 'danger', errorMessage);
+                showAlert(`Failed to upload ${file.name}: ${errorMessage}`, 'danger');
+            },
+            complete: function() {
+                callback();
+            }
+        });
+    }
+    
+    function addUploadResult(filename, type, message) {
+        const resultDiv = $('<div>').addClass(`alert alert-${type} alert-dismissible fade show`);
+        resultDiv.html(`
+            <strong>${filename}:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `);
+        uploadResults.append(resultDiv);
+    }
+    
+    function loadRecentUploads() {
+        $.ajax({
+            url: '/api/web/documents',
+            method: 'GET',
+            success: function(response) {
+                if (response.documents && response.documents.length > 0) {
+                    const uploadsHtml = response.documents.map(doc => `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <i class="fas fa-file me-2"></i>
+                                <strong>${doc.name}</strong>
+                                <small class="text-muted ms-2">${formatBytes(doc.size)}</small>
+                            </div>
+                            <small class="text-muted">${formatDate(doc.modified)}</small>
+                        </div>
+                    `).join('');
+                    recentUploads.html(uploadsHtml);
+                } else {
+                    recentUploads.html('<p class="text-muted text-center">No recent uploads</p>');
+                }
+            },
+            error: function() {
+                recentUploads.html('<p class="text-danger text-center">Failed to load recent uploads</p>');
+            }
+        });
+    }
+});
+</script>
+{% endblock %} 

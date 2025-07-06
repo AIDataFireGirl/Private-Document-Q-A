@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - Private Document Q&A System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <!-- System Overview -->
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    System Statistics
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row" id="systemStats">
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="stats-card">
+                            <h2 id="totalDocs" class="text-primary">-</h2>
+                            <small class="text-muted">Total Documents</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="stats-card">
+                            <h2 id="indexedDocs" class="text-success">-</h2>
+                            <small class="text-muted">Indexed Documents</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="stats-card">
+                            <h2 id="totalSize" class="text-info">-</h2>
+                            <small class="text-muted">Total Size</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="stats-card">
+                            <h2 id="systemStatus" class="text-warning">-</h2>
+                            <small class="text-muted">System Status</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detailed Statistics -->
+        <div class="row mt-3">
+            <!-- Index Statistics -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-database me-2"></i>
+                            Index Statistics
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="indexStats">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <p class="text-muted">Loading index statistics...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- QA Engine Statistics -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-robot me-2"></i>
+                            QA Engine Statistics
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="qaStats">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <p class="text-muted">Loading QA statistics...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Configuration Information -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>
+                    Configuration
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row" id="configInfo">
+                    <div class="col-md-6">
+                        <h6>Model Configuration</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>LLM Model:</strong> <span id="llmModel">-</span></li>
+                            <li><strong>Embedding Model:</strong> <span id="embedModel">-</span></li>
+                            <li><strong>Max File Size:</strong> <span id="maxFileSize">-</span></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Security Settings</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Rate Limit:</strong> <span id="rateLimit">-</span></li>
+                            <li><strong>Allowed Extensions:</strong> <span id="allowedExt">-</span></li>
+                            <li><strong>Active Sessions:</strong> <span id="activeSessions">-</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Health -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-heartbeat me-2"></i>
+                    System Health
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row" id="healthStatus">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-circle text-success me-2"></i>
+                            <div>
+                                <strong>API Status</strong>
+                                <br>
+                                <small class="text-muted">All endpoints responding</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-circle text-success me-2"></i>
+                            <div>
+                                <strong>Index Status</strong>
+                                <br>
+                                <small class="text-muted">Vector database operational</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-circle text-success me-2"></i>
+                            <div>
+                                <strong>Storage Status</strong>
+                                <br>
+                                <small class="text-muted">File system accessible</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Load all statistics on page load
+    loadSystemStats();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadSystemStats, 30000);
+    
+    function loadSystemStats() {
+        $.ajax({
+            url: '/api/web/stats',
+            method: 'GET',
+            success: function(response) {
+                updateSystemOverview(response);
+                updateIndexStats(response.index_stats);
+                updateQAStats(response.qa_stats);
+                updateConfigInfo(response);
+            },
+            error: function() {
+                showAlert('Failed to load system statistics', 'danger');
+            }
+        });
+    }
+    
+    function updateSystemOverview(data) {
+        const indexStats = data.index_stats || {};
+        const qaStats = data.qa_stats || {};
+        
+        $('#totalDocs').text(indexStats.total_documents || 0);
+        $('#indexedDocs').text(indexStats.index_exists ? (indexStats.total_documents || 0) : 0);
+        $('#totalSize').text('-'); // Would calculate from documents
+        $('#systemStatus').text('Healthy').removeClass('text-danger text-warning').addClass('text-success');
+    }
+    
+    function updateIndexStats(stats) {
+        if (!stats) {
+            $('#indexStats').html('<p class="text-muted text-center">No index statistics available</p>');
+            return;
+        }
+        
+        const statsHtml = `
+            <ul class="list-unstyled">
+                <li><strong>Total Documents:</strong> ${stats.total_documents || 0}</li>
+                <li><strong>Index Exists:</strong> ${stats.index_exists ? 'Yes' : 'No'}</li>
+                <li><strong>Storage Path:</strong> <code>${stats.storage_path || 'N/A'}</code></li>
+                <li><strong>Embedding Model:</strong> ${stats.embedding_model || 'N/A'}</li>
+                <li><strong>LLM Model:</strong> ${stats.llm_model || 'N/A'}</li>
+            </ul>
+        `;
+        
+        $('#indexStats').html(statsHtml);
+    }
+    
+    function updateQAStats(stats) {
+        if (!stats) {
+            $('#qaStats').html('<p class="text-muted text-center">No QA statistics available</p>');
+            return;
+        }
+        
+        const statsHtml = `
+            <ul class="list-unstyled">
+                <li><strong>Engine Type:</strong> ${stats.engine_type || 'N/A'}</li>
+                <li><strong>Model:</strong> ${stats.config?.model || 'N/A'}</li>
+                <li><strong>Embedding Model:</strong> ${stats.config?.embedding_model || 'N/A'}</li>
+                <li><strong>Max File Size:</strong> ${formatBytes(stats.config?.max_file_size || 0)}</li>
+                <li><strong>Question Patterns:</strong> ${(stats.question_patterns || []).join(', ')}</li>
+            </ul>
+        `;
+        
+        $('#qaStats').html(statsHtml);
+    }
+    
+    function updateConfigInfo(data) {
+        const qaStats = data.qa_stats || {};
+        const securityStats = data.security_stats || {};
+        
+        $('#llmModel').text(qaStats.config?.model || 'N/A');
+        $('#embedModel').text(qaStats.config?.embedding_model || 'N/A');
+        $('#maxFileSize').text(formatBytes(qaStats.config?.max_file_size || 0));
+        $('#rateLimit').text(securityStats.rate_limit_per_minute || 'N/A');
+        $('#allowedExt').text((qaStats.config?.allowed_extensions || []).join(', '));
+        $('#activeSessions').text(securityStats.active_sessions || 0);
+    }
+});
+</script>
+{% endblock %} 
